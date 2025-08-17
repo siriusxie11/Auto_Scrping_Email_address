@@ -7,6 +7,29 @@ export interface EmailResult {
   emails: string[];
   count: number;
   timestamp: string;
+  success?: boolean; // 添加可选的success字段
+  error?: string; // 添加可选的error字段
+}
+
+// 批量抓取结果接口
+export interface BatchResult {
+  id: string;
+  urls: string[];
+  results: EmailResult[];
+  totalEmails: string[];
+  uniqueEmailCount: number;
+  successCount: number;
+  failureCount: number;
+  timestamp: string;
+  duration: number; // 抓取耗时（毫秒）
+}
+
+// 批量抓取进度接口
+export interface BatchProgress {
+  current: number;
+  total: number;
+  currentUrl: string;
+  status: 'running' | 'completed' | 'error' | 'idle';
 }
 
 interface EmailScraperState {
@@ -15,6 +38,12 @@ interface EmailScraperState {
   currentUrl: string;
   currentEmails: string[];
   error: string | null;
+  
+  // Batch scraping state
+  isBatchLoading: boolean;
+  batchProgress: BatchProgress;
+  currentBatchResult: BatchResult | null;
+  batchHistory: BatchResult[];
   
   // History
   history: EmailResult[];
@@ -28,6 +57,15 @@ interface EmailScraperState {
   clearHistory: () => void;
   removeFromHistory: (id: string) => void;
   reset: () => void;
+  
+  // Batch actions
+  setBatchLoading: (loading: boolean) => void;
+  setBatchProgress: (progress: BatchProgress) => void;
+  setCurrentBatchResult: (result: BatchResult | null) => void;
+  addToBatchHistory: (result: BatchResult) => void;
+  clearBatchHistory: () => void;
+  removeFromBatchHistory: (id: string) => void;
+  resetBatch: () => void;
 }
 
 export const useEmailScraperStore = create<EmailScraperState>()(
@@ -39,6 +77,17 @@ export const useEmailScraperStore = create<EmailScraperState>()(
       currentEmails: [],
       error: null,
       history: [],
+      
+      // Batch initial state
+      isBatchLoading: false,
+      batchProgress: {
+        current: 0,
+        total: 0,
+        currentUrl: '',
+        status: 'idle'
+      },
+      currentBatchResult: null,
+      batchHistory: [],
 
       // Actions
       setLoading: (loading) => set({ isLoading: loading }),
@@ -69,11 +118,44 @@ export const useEmailScraperStore = create<EmailScraperState>()(
         currentEmails: [],
         error: null,
       }),
+      
+      // Batch actions
+      setBatchLoading: (loading) => set({ isBatchLoading: loading }),
+      
+      setBatchProgress: (progress) => set({ batchProgress: progress }),
+      
+      setCurrentBatchResult: (result) => set({ currentBatchResult: result }),
+      
+      addToBatchHistory: (result) => {
+        const { batchHistory } = get();
+        // Keep only the latest 5 batch results
+        const newBatchHistory = [result, ...batchHistory.slice(0, 4)];
+        set({ batchHistory: newBatchHistory });
+      },
+      
+      clearBatchHistory: () => set({ batchHistory: [] }),
+      
+      removeFromBatchHistory: (id) => {
+        const { batchHistory } = get();
+        set({ batchHistory: batchHistory.filter(item => item.id !== id) });
+      },
+      
+      resetBatch: () => set({
+        isBatchLoading: false,
+        batchProgress: {
+          current: 0,
+          total: 0,
+          currentUrl: '',
+          status: 'idle'
+        },
+        currentBatchResult: null,
+      }),
     }),
     {
       name: 'email-scraper-storage',
       partialize: (state) => ({
         history: state.history,
+        batchHistory: state.batchHistory,
       }),
     }
   )

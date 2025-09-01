@@ -32,6 +32,24 @@ export interface BatchProgress {
   status: 'running' | 'completed' | 'error' | 'idle';
 }
 
+// 网站搜索结果接口
+export interface SearchResult {
+  title: string;
+  url: string;
+  snippet: string;
+  domain: string;
+}
+
+// 搜索历史接口
+export interface SearchHistory {
+  id: string;
+  keyword: string;
+  region: string;
+  results: SearchResult[];
+  count: number;
+  timestamp: string;
+}
+
 interface EmailScraperState {
   // Current scraping state
   isLoading: boolean;
@@ -44,6 +62,13 @@ interface EmailScraperState {
   batchProgress: BatchProgress;
   currentBatchResult: BatchResult | null;
   batchHistory: BatchResult[];
+  
+  // Website search state
+  isSearching: boolean;
+  searchResults: SearchResult[];
+  searchHistory: SearchHistory[];
+  currentSearchKeyword: string;
+  currentSearchRegion: string;
   
   // History
   history: EmailResult[];
@@ -66,6 +91,16 @@ interface EmailScraperState {
   clearBatchHistory: () => void;
   removeFromBatchHistory: (id: string) => void;
   resetBatch: () => void;
+  
+  // Search actions
+  setSearching: (searching: boolean) => void;
+  setSearchResults: (results: SearchResult[]) => void;
+  setCurrentSearchKeyword: (keyword: string) => void;
+  setCurrentSearchRegion: (region: string) => void;
+  addToSearchHistory: (searchResult: SearchHistory) => void;
+  clearSearchHistory: () => void;
+  removeFromSearchHistory: (id: string) => void;
+  resetSearch: () => void;
 }
 
 export const useEmailScraperStore = create<EmailScraperState>()(
@@ -88,6 +123,13 @@ export const useEmailScraperStore = create<EmailScraperState>()(
       },
       currentBatchResult: null,
       batchHistory: [],
+      
+      // Search initial state
+      isSearching: false,
+      searchResults: [],
+      searchHistory: [],
+      currentSearchKeyword: '',
+      currentSearchRegion: '',
 
       // Actions
       setLoading: (loading) => set({ isLoading: loading }),
@@ -150,12 +192,43 @@ export const useEmailScraperStore = create<EmailScraperState>()(
         },
         currentBatchResult: null,
       }),
+      
+      // Search actions
+      setSearching: (searching) => set({ isSearching: searching }),
+      
+      setSearchResults: (results) => set({ searchResults: results }),
+      
+      setCurrentSearchKeyword: (keyword) => set({ currentSearchKeyword: keyword }),
+      
+      setCurrentSearchRegion: (region) => set({ currentSearchRegion: region }),
+      
+      addToSearchHistory: (searchResult) => {
+        const { searchHistory } = get();
+        // Keep only the latest 5 search results
+        const newSearchHistory = [searchResult, ...searchHistory.slice(0, 4)];
+        set({ searchHistory: newSearchHistory });
+      },
+      
+      clearSearchHistory: () => set({ searchHistory: [] }),
+      
+      removeFromSearchHistory: (id) => {
+        const { searchHistory } = get();
+        set({ searchHistory: searchHistory.filter(item => item.id !== id) });
+      },
+      
+      resetSearch: () => set({
+        isSearching: false,
+        searchResults: [],
+        currentSearchKeyword: '',
+        currentSearchRegion: '',
+      }),
     }),
     {
       name: 'email-scraper-storage',
       partialize: (state) => ({
         history: state.history,
         batchHistory: state.batchHistory,
+        searchHistory: state.searchHistory,
       }),
     }
   )
